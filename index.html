@@ -53,9 +53,7 @@
             <button type="button" id="demo-btn" class="btn btn-secondary">Demo (test)</button>
           </div>
         </form>
-
         <div id="status-area" class="status-area" aria-live="polite"></div>
-
         <div id="result-area" class="result-area" hidden>
           <div class="card">
             <h2 class="card-title">Shipment Summary</h2>
@@ -82,16 +80,84 @@
               </div>
             </div>
           </div>
-
           <div class="card">
             <h2 class="card-title">Tracking Timeline</h2>
             <ol id="timeline" class="timeline"></ol>
           </div>
-
           <details class="details">
             <summary class="details-summary">Raw JSON</summary>
             <pre id="raw-json" class="raw-json"></pre>
           </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <h2 class="card-title">Shipment Manifests</h2>
+        <p class="muted">Group multiple shipments into a manifest and refresh tracking for all of them at once.</p>
+
+        <div class="card">
+          <h3 class="card-title">Create Manifest</h3>
+          <form id="create-manifest-form" class="track-form">
+            <div class="form-row">
+              <label for="manifest-name" class="label">Manifest Name</label>
+              <input type="text" id="manifest-name" name="manifest-name" placeholder="e.g. Weekly Orders 11/24" class="input" required />
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Create Manifest</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Manifests</h3>
+          <div class="form-row">
+            <label for="manifest-select" class="label">Select Manifest</label>
+            <select id="manifest-select" class="input">
+              <option value="">-- Select a manifest --</option>
+            </select>
+            <button type="button" id="refresh-manifests-btn" class="btn btn-secondary">Refresh List</button>
+          </div>
+        </div>
+
+        <div id="manifest-detail" class="card" hidden>
+          <h3 class="card-title" id="manifest-detail-title">Manifest</h3>
+
+          <form id="add-shipment-form" class="track-form">
+            <div class="form-row">
+              <label for="manifest-carrier" class="label">Carrier</label>
+              <select id="manifest-carrier" class="input">
+                <option value="ups">UPS</option>
+                <option value="usps">USPS</option>
+                <option value="fedex">FedEx</option>
+                <option value="shippo">Shippo (test)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="manifest-tracking-number" class="label">Tracking Number</label>
+              <input type="text" id="manifest-tracking-number" class="input" placeholder="e.g. 1Z999AA10123456784" required />
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Add Shipment</button>
+              <button type="button" id="refresh-tracking-btn" class="btn btn-secondary">Refresh Tracking</button>
+            </div>
+          </form>
+
+          <div id="manifest-status-area" class="status-area" aria-live="polite"></div>
+
+          <table class="manifest-table">
+            <thead>
+              <tr>
+                <th>Carrier</th>
+                <th>Tracking Number</th>
+                <th>Status</th>
+                <th>Latest Location</th>
+                <th>ETA</th>
+              </tr>
+            </thead>
+            <tbody id="manifest-shipments-body"></tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -107,7 +173,6 @@
       </p>
     </div>
   </footer>
-
   <script src="./assets/js/app.js"></script>
 </body>
 </html>
