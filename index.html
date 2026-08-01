@@ -112,19 +112,26 @@
 
         <div class="card">
           <h3 class="card-title">Manifests</h3>
-          <div class="form-row">
-            <label for="manifest-select" class="label">Select Manifest</label>
-            <select id="manifest-select" class="input">
-              <option value="">-- Select a manifest --</option>
-            </select>
-            <button type="button" id="refresh-manifests-btn" class="btn btn-secondary">Refresh List</button>
-            <button type="button" id="delete-manifest-btn" class="btn btn-danger" hidden>Delete Manifest</button>
+          <div class="manifest-toolbar">
+            <div class="manifest-select-row">
+              <label for="manifest-select" class="label">Select Manifest</label>
+              <select id="manifest-select" class="input">
+                <option value="">-- Select a manifest --</option>
+              </select>
+            </div>
+            <div class="manifest-toolbar-actions">
+              <button type="button" id="refresh-manifests-btn" class="btn btn-secondary">Refresh List</button>
+              <button type="button" id="delete-manifest-btn" class="btn btn-danger" hidden>Delete Manifest</button>
+            </div>
           </div>
           <p id="no-manifest-message" class="muted" hidden>No manifest selected.</p>
         </div>
 
         <div id="manifest-detail" class="card" hidden>
-          <h3 class="card-title" id="manifest-detail-title">Manifest</h3>
+          <div class="manifest-detail-header">
+            <h3 class="card-title" id="manifest-detail-title">Manifest</h3>
+            <div id="manifest-summary-chips" class="manifest-summary-chips"></div>
+          </div>
           <form id="add-shipment-form" class="track-form">
             <div class="form-row">
               <label for="manifest-carrier" class="label">Carrier</label>
@@ -145,19 +152,7 @@
             </div>
           </form>
           <div id="manifest-status-area" class="status-area" aria-live="polite"></div>
-          <table class="manifest-table">
-            <thead>
-              <tr>
-                <th>Carrier</th>
-                <th>Tracking Number</th>
-                <th>Status</th>
-                <th>Latest Location</th>
-                <th>ETA</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="manifest-shipments-body"></tbody>
-          </table>
+          <div id="manifest-shipments-body" class="shipment-list"></div>
         </div>
       </div>
     </section>
