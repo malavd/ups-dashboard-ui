@@ -131,4 +131,203 @@
     themeToggle.querySelector(".theme-icon").textContent =
       theme === "dark" ? "🌙" : "☀️";
   });
+// ---- Manifest feature ----
+  const createManifestForm = document.getElementById("create-manifest-form");
+  const manifestNameEl = document.getElementById("manifest-name");
+  const manifestSelect = document.getElementById("manifest-select");
+  const refreshManifestsBtn = document.getElementById("refresh-manifests-btn");
+  const manifestDetail = document.getElementById("manifest-detail");
+  const manifestDetailTitle = document.getElementById("manifest-detail-title");
+  const addShipmentForm = document.getElementById("add-shipment-form");
+  const manifestCarrierEl = document.getElementById("manifest-carrier");
+  const manifestTrackingEl = document.getElementById("manifest-tracking-number");
+  const refreshTrackingBtn = document.getElementById("refresh-tracking-btn");
+  const manifestStatusArea = document.getElementById("manifest-status-area");
+  const manifestShipmentsBody = document.getElementById("manifest-shipments-body");
+
+  let currentManifestId = null;
+
+  function setManifestStatus(text, tone) {
+    if (!manifestStatusArea) return;
+    manifestStatusArea.innerHTML = "";
+    if (!text) return;
+    const span = document.createElement("span");
+    span.className = "status status--" + (tone || "default");
+    span.textContent = text;
+    manifestStatusArea.appendChild(span);
+  }
+
+  async function loadManifests(selectId) {
+    try {
+      const res = await fetch(API_BASE_URL + "/api/manifests");
+      const data = await res.json();
+      if (!res.ok || !data.ok) return;
+      manifestSelect.innerHTML = '<option value="">-- Select a manifest --</option>';
+      (data.manifests || []).forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m.id || m._id;
+        opt.textContent = m.name || opt.value;
+        manifestSelect.appendChild(opt);
+      });
+      if (selectId) {
+        manifestSelect.value = selectId;
+        loadManifestDetail(selectId);
+      }
+    } catch (err) {
+      setManifestStatus("Failed to load manifests.", "error");
+    }
+  }
+
+  function renderManifestShipments(shipments) {
+    manifestShipmentsBody.innerHTML = "";
+    if (!Array.isArray(shipments) || shipments.length === 0) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 5;
+      td.textContent = "No shipments yet.";
+      tr.appendChild(td);
+      manifestShipmentsBody.appendChild(tr);
+      return;
+    }
+    shipments.forEach((s) => {
+      const tr = document.createElement("tr");
+      const eta = s.estimatedDelivery
+        ? new Date(s.estimatedDelivery).toLocaleDateString()
+        : "";
+      tr.innerHTML =
+        "<td>" + (s.carrier || "").toUpperCase() + "</td>" +
+        "<td>" + (s.trackingNumber || "") + "</td>" +
+        "<td>" + (s.status || "UNKNOWN") + "</td>" +
+        "<td>" + (s.latestLocation || "") + "</td>" +
+        "<td>" + eta + "</td>";
+      manifestShipmentsBody.appendChild(tr);
+    });
+  }
+
+  async function loadManifestDetail(id) {
+    if (!id) {
+      manifestDetail.hidden = true;
+      currentManifestId = null;
+      return;
+    }
+    try {
+      const res = await fetch(API_BASE_URL + "/api/manifests/" + id);
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setManifestStatus("Failed to load manifest.", "error");
+        return;
+      }
+      currentManifestId = id;
+      manifestDetail.hidden = false;
+      manifestDetailTitle.textContent = data.manifest.name || "Manifest";
+      renderManifestShipments(data.manifest.shipments || []);
+    } catch (err) {
+      setManifestStatus("Network error while loading manifest.", "error");
+    }
+  }
+
+  if (createManifestForm) {
+    createManifestForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = manifestNameEl.value.trim();
+      if (!name) return;
+      try {
+        const res = await fetch(API_BASE_URL + "/api/manifests", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          setManifestStatus("Failed to create manifest.", "error");
+          return;
+        }
+        manifestNameEl.value = "";
+        setManifestStatus("Manifest created.", "success");
+        const newId = data.manifest.id || data.manifest._id;
+        await loadManifests(newId);
+      } catch (err) {
+        setManifestStatus("Network error while creating manifest.", "error");
+      }
+    });
+  }
+
+  if (manifestSelect) {
+    manifestSelect.addEventListener("change", () => {
+      loadManifestDetail(manifestSelect.value);
+    });
+  }
+
+  if (refreshManifestsBtn) {
+    refreshManifestsBtn.addEventListener("click", () => loadManifests());
+  }
+
+  if (addShipmentForm) {
+    addShipmentForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!currentManifestId) {
+        setManifestStatus("Select a manifest first.", "error");
+        return;
+      }
+      const carrier = manifestCarrierEl.value.trim();
+      const trackingNumber = manifestTrackingEl.value.trim();
+      if (!carrier || !trackingNumber) {
+        setManifestStatus("Enter a carrier and tracking number.", "error");
+        return;
+      }
+      try {
+        const res = await fetch(
+          API_BASE_URL + "/api/manifests/" + currentManifestId + "/shipments",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ carrier, trackingNumber }),
+          }
+        );
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          setManifestStatus(
+            (data && data.error && data.error.message) || "Failed to add shipment.",
+            "error"
+          );
+          return;
+        }
+        manifestTrackingEl.value = "";
+        setManifestStatus("Shipment added.", "success");
+        loadManifestDetail(currentManifestId);
+      } catch (err) {
+        setManifestStatus("Network error while adding shipment.", "error");
+      }
+    });
+  }
+
+  if (refreshTrackingBtn) {
+    refreshTrackingBtn.addEventListener("click", async () => {
+      if (!currentManifestId) {
+        setManifestStatus("Select a manifest first.", "error");
+        return;
+      }
+      setManifestStatus("Refreshing tracking...", "loading");
+      try {
+        const res = await fetch(
+          API_BASE_URL + "/api/manifests/" + currentManifestId + "/track",
+          { method: "POST" }
+        );
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          setManifestStatus("Failed to refresh tracking.", "error");
+          return;
+        }
+        setManifestStatus("Tracking refreshed.", "success");
+        loadManifestDetail(currentManifestId);
+      } catch (err) {
+        setManifestStatus("Network error while refreshing tracking.", "error");
+      }
+    });
+  }
+
+  if (manifestSelect) {
+    loadManifests();
+  }
+
 })();
