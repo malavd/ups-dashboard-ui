@@ -10,6 +10,7 @@
   const resultArea = document.getElementById("result-area");
   const demoBtn = document.getElementById("demo-btn");
   const themeToggle = document.getElementById("theme-toggle");
+  const carrierDetectedHint = document.getElementById("carrier-detected-hint");
 
   const summaryTracking = document.getElementById("summary-tracking");
   const summaryCarrier = document.getElementById("summary-carrier");
@@ -18,6 +19,12 @@
   const summaryEta = document.getElementById("summary-eta");
   const timeline = document.getElementById("timeline");
   const rawJson = document.getElementById("raw-json");
+
+  const detectCarrier =
+    (window.CarrierDetect && window.CarrierDetect.detectCarrier) ||
+    function (input) {
+      return { carrier: "Unknown", format: null, sanitized: (input || "").toString() };
+    };
 
   function setStatus(text, tone) {
     statusArea.innerHTML = "";
@@ -52,9 +59,7 @@
           ? new Date(evt.timestamp).toLocaleString() + " - "
           : "";
         li.textContent =
-          timePart +
-          (evt.location ? evt.location + ": " : "") +
-          (evt.description || "");
+          timePart + (evt.location ? evt.location + ": " : "") + (evt.description || "");
         timeline.appendChild(li);
       });
     }
@@ -92,15 +97,59 @@
     }
   }
 
+  function resolveCarrier(selectEl, rawTrackingNumber) {
+    const selected = (selectEl.value || "").trim().toLowerCase();
+    if (selected !== "auto") {
+      return { carrier: selected, detectedLabel: "" };
+    }
+    const result = detectCarrier(rawTrackingNumber);
+    if (result.carrier === "Unknown") {
+      return { carrier: "", detectedLabel: "Unknown" };
+    }
+    return { carrier: result.carrier.toLowerCase(), detectedLabel: result.carrier };
+  }
+
+  function updateDetectedHint(hintEl, selectEl, rawTrackingNumber) {
+    if (!hintEl) return;
+    const selected = (selectEl.value || "").trim().toLowerCase();
+    if (selected !== "auto" || !rawTrackingNumber) {
+      hintEl.hidden = true;
+      hintEl.textContent = "";
+      return;
+    }
+    const result = detectCarrier(rawTrackingNumber);
+    hintEl.hidden = false;
+    hintEl.textContent =
+      result.carrier === "Unknown"
+        ? "Could not auto-detect carrier for this tracking number."
+        : "Detected carrier: " + result.carrier;
+  }
+
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-    const carrier = carrierEl.value.trim();
     const trackingNumber = trackingEl.value.trim();
-    if (!carrier || !trackingNumber) {
-      setStatus("Please enter a carrier and tracking number.", "error");
+    if (!trackingNumber) {
+      setStatus("Please enter a tracking number.", "error");
+      return;
+    }
+    const { carrier, detectedLabel } = resolveCarrier(carrierEl, trackingNumber);
+    if (!carrier) {
+      setStatus(
+        detectedLabel === "Unknown"
+          ? "Could not auto-detect carrier. Please select one manually."
+          : "Please enter a carrier and tracking number.",
+        "error"
+      );
       return;
     }
     trackPackage(carrier, trackingNumber);
+  });
+
+  trackingEl.addEventListener("input", () => {
+    updateDetectedHint(carrierDetectedHint, carrierEl, trackingEl.value.trim());
+  });
+  carrierEl.addEventListener("change", () => {
+    updateDetectedHint(carrierDetectedHint, carrierEl, trackingEl.value.trim());
   });
 
   demoBtn.addEventListener("click", () => {
@@ -130,6 +179,9 @@
   const addShipmentForm = document.getElementById("add-shipment-form");
   const manifestCarrierEl = document.getElementById("manifest-carrier");
   const manifestTrackingEl = document.getElementById("manifest-tracking-number");
+  const manifestCarrierDetectedHint = document.getElementById(
+    "manifest-carrier-detected-hint"
+  );
   const refreshTrackingBtn = document.getElementById("refresh-tracking-btn");
   const manifestStatusArea = document.getElementById("manifest-status-area");
   const manifestShipmentsBody = document.getElementById("manifest-shipments-body");
@@ -177,6 +229,29 @@
     });
   }
 
+  async function removeShipment(shipmentId) {
+    if (!currentManifestId) return;
+    if (!confirm("Remove this shipment from the manifest?")) return;
+    try {
+      const res = await fetch(
+        API_BASE_URL +
+          "/api/manifests/" +
+          encodeURIComponent(currentManifestId) +
+          "/shipments/" +
+          encodeURIComponent(shipmentId),
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        setManifestStatus("Could not remove shipment.", "error");
+        return;
+      }
+      setManifestStatus("Shipment removed.", "success");
+      await loadManifestDetail(currentManifestId);
+    } catch (err) {
+      setManifestStatus("Network error while removing shipment.", "error");
+    }
+  }
+
   function renderManifestShipments(shipments) {
     manifestShipmentsBody.innerHTML = "";
     if (!Array.isArray(shipments) || shipments.length === 0) {
@@ -187,151 +262,82 @@
       renderManifestSummaryChips([]);
       return;
     }
-
     renderManifestSummaryChips(shipments);
-
     shipments.forEach((s) => {
       const card = document.createElement("div");
       card.className = "shipment-card";
 
+      const trackingDiv = document.createElement("div");
+      trackingDiv.className = "shipment-card-tracking";
+      trackingDiv.textContent = s.trackingNumber;
+
+      const carrierDiv = document.createElement("div");
+      carrierDiv.className = "shipment-card-carrier";
+      carrierDiv.textContent = (s.carrier || "").toUpperCase();
+
+      const etaDiv = document.createElement("div");
+      etaDiv.className = "shipment-card-eta";
+      etaDiv.textContent = s.estimatedDelivery
+        ? "ETA: " + new Date(s.estimatedDelivery).toLocaleDateString()
+        : "No ETA";
+
+      const locationDiv = document.createElement("div");
+      locationDiv.className = "shipment-card-location";
+      locationDiv.textContent = s.latestLocation || "N/A";
+
       const badge = document.createElement("div");
-      badge.className = "shipment-carrier-badge";
-      badge.textContent = (s.carrier || "").toUpperCase().slice(0, 4);
-      card.appendChild(badge);
+      badge.className = "status-badge " + statusBadgeClass(s.status);
+      badge.textContent = s.status || "PENDING";
 
-      const main = document.createElement("div");
-      main.className = "shipment-main";
-
-      const tracking = document.createElement("div");
-      tracking.className = "shipment-tracking";
-      tracking.textContent = s.trackingNumber || "";
-      main.appendChild(tracking);
-
-      const meta = document.createElement("div");
-      meta.className = "shipment-meta";
-
-      const statusSpan = document.createElement("span");
-      statusSpan.className = "status-badge " + statusBadgeClass(s.status);
-      statusSpan.textContent = s.status || "UNKNOWN";
-      meta.appendChild(statusSpan);
-
-      if (s.latestLocation) {
-        const locSpan = document.createElement("span");
-        locSpan.innerHTML = "<strong>Location:</strong> " + s.latestLocation;
-        meta.appendChild(locSpan);
-      }
-
-      if (s.estimatedDelivery) {
-        const etaSpan = document.createElement("span");
-        etaSpan.innerHTML =
-          "<strong>ETA:</strong> " + new Date(s.estimatedDelivery).toLocaleDateString();
-        meta.appendChild(etaSpan);
-      }
-
-      main.appendChild(meta);
-      card.appendChild(main);
-
-      const actions = document.createElement("div");
-      actions.className = "shipment-actions";
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
-      removeBtn.className = "btn-icon";
+      removeBtn.className = "remove-btn";
       removeBtn.textContent = "Remove";
-      removeBtn.addEventListener("click", () => removeShipment(s.id || s._id));
-      actions.appendChild(removeBtn);
-      card.appendChild(actions);
+      removeBtn.addEventListener("click", () => removeShipment(s.id));
 
+      card.appendChild(trackingDiv);
+      card.appendChild(carrierDiv);
+      card.appendChild(etaDiv);
+      card.appendChild(locationDiv);
+      card.appendChild(badge);
+      card.appendChild(removeBtn);
       manifestShipmentsBody.appendChild(card);
     });
   }
 
-  async function removeShipment(shipmentId) {
-    if (!currentManifestId || !shipmentId) return;
-    const confirmed = window.confirm("Remove this shipment from the manifest?");
-    if (!confirmed) return;
-    setManifestStatus("Removing shipment...", "loading");
-    try {
-      const res = await fetch(
-        API_BASE_URL +
-          "/api/manifests/" +
-          currentManifestId +
-          "/shipments?shipmentId=" +
-          encodeURIComponent(shipmentId),
-        { method: "DELETE" }
-      );
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        setManifestStatus("Failed to remove shipment.", "error");
-        return;
-      }
-      setManifestStatus("Shipment removed.", "success");
-      loadManifestDetail(currentManifestId);
-    } catch (err) {
-      setManifestStatus("Network error while removing shipment.", "error");
-    }
-  }
-
-  async function loadManifests(selectId) {
+  async function loadManifests() {
     try {
       const res = await fetch(API_BASE_URL + "/api/manifests");
       const data = await res.json();
-      if (!res.ok || !data.ok) return;
-      const manifests = data.manifests || [];
-      manifestSelect.innerHTML = '<option value="">-- Select a manifest --</option>';
+      const manifests = Array.isArray(data) ? data : data.manifests || [];
+      manifestSelect.innerHTML = '<option value="">-- Select a Manifest --</option>';
       manifests.forEach((m) => {
         const opt = document.createElement("option");
-        opt.value = m.id || m._id;
-        opt.textContent = m.name || opt.value;
+        opt.value = m.id;
+        opt.textContent = m.name;
         manifestSelect.appendChild(opt);
       });
-
-      let targetId = selectId;
-      if (targetId && !manifests.some((m) => (m.id || m._id) === targetId)) {
-        targetId = null;
-      }
-      if (!targetId && manifests.length > 0) {
-        targetId = manifests[0].id || manifests[0]._id;
-      }
-
-      if (targetId) {
-        manifestSelect.value = targetId;
-        loadManifestDetail(targetId);
-      } else {
-        manifestSelect.value = "";
-        showNoManifestState();
+      if (noManifestMessage) {
+        noManifestMessage.hidden = manifests.length > 0;
       }
     } catch (err) {
-      setManifestStatus("Failed to load manifests.", "error");
+      setManifestStatus("Error loading manifests.", "error");
     }
   }
 
-  function showNoManifestState() {
-    currentManifestId = null;
-    manifestDetail.hidden = true;
-    if (noManifestMessage) noManifestMessage.hidden = false;
-    if (deleteManifestBtn) deleteManifestBtn.hidden = true;
-  }
-
-  async function loadManifestDetail(id) {
-    if (!id) {
-      showNoManifestState();
+  async function loadManifestDetail(manifestId) {
+    if (!manifestId) {
+      manifestDetail.hidden = true;
       return;
     }
     try {
-      const res = await fetch(API_BASE_URL + "/api/manifests/" + id);
+      const res = await fetch(API_BASE_URL + "/api/manifests/" + encodeURIComponent(manifestId));
       const data = await res.json();
-      if (!res.ok || !data.ok) {
-        setManifestStatus("Failed to load manifest.", "error");
-        return;
-      }
-      currentManifestId = id;
-      if (noManifestMessage) noManifestMessage.hidden = true;
-      if (deleteManifestBtn) deleteManifestBtn.hidden = false;
       manifestDetail.hidden = false;
-      manifestDetailTitle.textContent = data.manifest.name || "Manifest";
-      renderManifestShipments(data.manifest.shipments || []);
+      manifestDetailTitle.textContent = data.name || "";
+      renderManifestShipments(data.shipments || []);
     } catch (err) {
-      setManifestStatus("Network error while loading manifest.", "error");
+      setManifestStatus("Error loading manifest detail.", "error");
     }
   }
 
@@ -346,54 +352,76 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name }),
         });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          setManifestStatus("Failed to create manifest.", "error");
-          return;
+        if (res.ok) {
+          const created = await res.json();
+          manifestNameEl.value = "";
+          await loadManifests();
+          if (created && created.id) {
+            manifestSelect.value = created.id;
+            currentManifestId = created.id;
+            await loadManifestDetail(created.id);
+          }
+        } else {
+          setManifestStatus("Could not create manifest.", "error");
         }
-        manifestNameEl.value = "";
-        setManifestStatus("Manifest created.", "success");
-        const newId = data.manifest.id || data.manifest._id;
-        await loadManifests(newId);
       } catch (err) {
         setManifestStatus("Network error while creating manifest.", "error");
       }
     });
   }
 
-  if (manifestSelect) {
-    manifestSelect.addEventListener("change", () => {
-      loadManifestDetail(manifestSelect.value);
+  if (deleteManifestBtn) {
+    deleteManifestBtn.addEventListener("click", async () => {
+      if (!currentManifestId) return;
+      if (!confirm("Delete this manifest? This cannot be undone.")) return;
+      try {
+        const res = await fetch(
+          API_BASE_URL + "/api/manifests/" + encodeURIComponent(currentManifestId),
+          { method: "DELETE" }
+        );
+        if (!res.ok) {
+          setManifestStatus("Could not delete manifest.", "error");
+          return;
+        }
+        currentManifestId = null;
+        manifestDetail.hidden = true;
+        await loadManifests();
+        if (manifestSelect.options.length > 1) {
+          manifestSelect.selectedIndex = 1;
+          currentManifestId = manifestSelect.value;
+          await loadManifestDetail(currentManifestId);
+        }
+      } catch (err) {
+        setManifestStatus("Network error while deleting manifest.", "error");
+      }
+    });
+  }
+
+  if (refreshTrackingBtn) {
+    refreshTrackingBtn.addEventListener("click", async () => {
+      if (!currentManifestId) return;
+      setManifestStatus("Refreshing tracking status...", "loading");
+      try {
+        await fetch(
+          API_BASE_URL + "/api/manifests/" + encodeURIComponent(currentManifestId) + "/refresh",
+          { method: "POST" }
+        );
+        await loadManifestDetail(currentManifestId);
+        setManifestStatus("Tracking refreshed.", "success");
+      } catch (err) {
+        setManifestStatus("Error refreshing tracking.", "error");
+      }
     });
   }
 
   if (refreshManifestsBtn) {
-    refreshManifestsBtn.addEventListener("click", () => loadManifests(currentManifestId));
+    refreshManifestsBtn.addEventListener("click", loadManifests);
   }
 
-  if (deleteManifestBtn) {
-    deleteManifestBtn.addEventListener("click", async () => {
-      if (!currentManifestId) return;
-      const name = manifestDetailTitle ? manifestDetailTitle.textContent : "this manifest";
-      const confirmed = window.confirm(
-        'Delete manifest "' + name + '"? This removes all shipments in it.'
-      );
-      if (!confirmed) return;
-      setManifestStatus("Deleting manifest...", "loading");
-      try {
-        const res = await fetch(API_BASE_URL + "/api/manifests/" + currentManifestId, {
-          method: "DELETE",
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          setManifestStatus("Failed to delete manifest.", "error");
-          return;
-        }
-        setManifestStatus("Manifest deleted.", "success");
-        await loadManifests();
-      } catch (err) {
-        setManifestStatus("Network error while deleting manifest.", "error");
-      }
+  if (manifestSelect) {
+    manifestSelect.addEventListener("change", async (e) => {
+      currentManifestId = e.target.value || null;
+      await loadManifestDetail(currentManifestId);
     });
   }
 
@@ -404,64 +432,72 @@
         setManifestStatus("Select a manifest first.", "error");
         return;
       }
-      const carrier = manifestCarrierEl.value.trim();
-      const trackingNumber = manifestTrackingEl.value.trim();
-      if (!carrier || !trackingNumber) {
-        setManifestStatus("Enter a carrier and tracking number.", "error");
+      const rawInput = manifestTrackingEl.value.trim();
+      if (!rawInput) {
+        setManifestStatus("Please enter at least one tracking number.", "error");
         return;
       }
-      try {
-        const res = await fetch(
-          API_BASE_URL + "/api/manifests/" + currentManifestId + "/shipments",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ carrier, trackingNumber }),
-          }
-        );
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          setManifestStatus(
-            (data && data.error && data.error.message) || "Failed to add shipment.",
-            "error"
+      const trackingNumbers = rawInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t);
+
+      setManifestStatus("Adding " + trackingNumbers.length + " shipment(s)...", "loading");
+
+      let successCount = 0;
+      let failCount = 0;
+      const failedNumbers = [];
+
+      for (const trackingNumber of trackingNumbers) {
+        const { carrier, detectedLabel } = resolveCarrier(manifestCarrierEl, trackingNumber);
+        if (!carrier) {
+          failCount++;
+          failedNumbers.push(trackingNumber + " (carrier unresolved)");
+          continue;
+        }
+        try {
+          const res = await fetch(
+            API_BASE_URL +
+              "/api/manifests/" +
+              encodeURIComponent(currentManifestId) +
+              "/shipments",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ carrier, trackingNumber }),
+            }
           );
-          return;
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data.ok === false) {
+            failCount++;
+            failedNumbers.push(trackingNumber);
+          } else {
+            successCount++;
+          }
+        } catch (err) {
+          failCount++;
+          failedNumbers.push(trackingNumber);
         }
-        manifestTrackingEl.value = "";
-        setManifestStatus("Shipment added.", "success");
-        loadManifestDetail(currentManifestId);
-      } catch (err) {
-        setManifestStatus("Network error while adding shipment.", "error");
       }
+
+      const summary =
+        successCount + " added" + (failCount ? ", " + failCount + " failed" : "");
+      setManifestStatus(summary, failCount ? "error" : "success");
+      manifestTrackingEl.value = "";
+      updateDetectedHint(manifestCarrierDetectedHint, manifestCarrierEl, "");
+      await loadManifestDetail(currentManifestId);
+    });
+
+    manifestTrackingEl.addEventListener("input", () => {
+      const firstNumber = manifestTrackingEl.value.split(",")[0].trim();
+      updateDetectedHint(manifestCarrierDetectedHint, manifestCarrierEl, firstNumber);
+    });
+
+    manifestCarrierEl.addEventListener("change", () => {
+      const firstNumber = manifestTrackingEl.value.split(",")[0].trim();
+      updateDetectedHint(manifestCarrierDetectedHint, manifestCarrierEl, firstNumber);
     });
   }
 
-  if (refreshTrackingBtn) {
-    refreshTrackingBtn.addEventListener("click", async () => {
-      if (!currentManifestId) {
-        setManifestStatus("Select a manifest first.", "error");
-        return;
-      }
-      setManifestStatus("Refreshing tracking...", "loading");
-      try {
-        const res = await fetch(
-          API_BASE_URL + "/api/manifests/" + currentManifestId + "/track",
-          { method: "POST" }
-        );
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          setManifestStatus("Failed to refresh tracking.", "error");
-          return;
-        }
-        setManifestStatus("Tracking refreshed.", "success");
-        loadManifestDetail(currentManifestId);
-      } catch (err) {
-        setManifestStatus("Network error while refreshing tracking.", "error");
-      }
-    });
-  }
-
-  if (manifestSelect) {
-    loadManifests();
-  }
+  loadManifests();
 })();
