@@ -2,7 +2,7 @@
   "use strict";
 
   // Replace this with your Vercel backend URL after deployment.
-  const API_BASE_URL = "https://ups-dashboard-mndfo469x-malav2.vercel.app";
+    const API_BASE_URL = "https://ups-dashboard-api.vercel.app";
 
   const form = document.getElementById("track-form");
   const carrierEl = document.getElementById("carrier");
