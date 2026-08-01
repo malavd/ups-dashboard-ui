@@ -31,11 +31,13 @@
           <div class="form-row">
             <label for="carrier" class="label">Carrier</label>
             <select id="carrier" name="carrier" class="input">
+              <option value="auto">Auto-Detect</option>
               <option value="ups">UPS</option>
               <option value="usps">USPS</option>
               <option value="fedex">FedEx</option>
               <option value="shippo">Shippo (test)</option>
             </select>
+            <p id="carrier-detected-hint" class="muted small-hint" hidden></p>
           </div>
           <div class="form-row">
             <label for="trackingNumber" class="label">Tracking Number</label>
@@ -136,15 +138,18 @@
             <div class="form-row">
               <label for="manifest-carrier" class="label">Carrier</label>
               <select id="manifest-carrier" class="input">
+                <option value="auto">Auto-Detect</option>
                 <option value="ups">UPS</option>
                 <option value="usps">USPS</option>
                 <option value="fedex">FedEx</option>
                 <option value="shippo">Shippo (test)</option>
               </select>
+              <p id="manifest-carrier-detected-hint" class="muted small-hint" hidden></p>
             </div>
             <div class="form-row">
               <label for="manifest-tracking-number" class="label">Tracking Number</label>
-              <input type="text" id="manifest-tracking-number" class="input" placeholder="e.g. 1Z999AA10123456784" required />
+              <input type="text" id="manifest-tracking-number" class="input" placeholder="e.g. 1Z999AA10123456784 (or paste multiple, comma-separated)" required />
+              <p class="muted small-hint">Tip: paste multiple tracking numbers separated by commas to add them all at once. Carrier is auto-detected per number when "Auto-Detect" is selected.</p>
             </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary">Add Shipment</button>
@@ -169,6 +174,7 @@
     </div>
   </footer>
 
+  <script src="./assets/js/carrierDetect.js"></script>
   <script src="./assets/js/app.js"></script>
 </body>
 </html>
