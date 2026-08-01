@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="UPS Tracking Dashboard — custom shipment visibility tool for monitoring package status and delivery events." />
+  <meta name="theme-color" content="#1a56db" />
+  <title>UPS Tracking Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="site-header" role="banner">
+    <div class="header-inner">
+      <div class="header-brand">
+        <span class="header-icon" aria-hidden="true">📦</span>
+        <div>
+          <h1 class="header-title">UPS Tracking Dashboard</h1>
+          <p class="header-subtitle">Custom shipment visibility dashboard — powered by a secure backend API</p>
+        </div>
+      </div>
+      <button
+        id="theme-toggle"
+        class="btn btn--icon"
+        aria-label="Toggle light/dark theme"
+        title="Toggle theme"
+      >
+        <span class="theme-icon theme-icon--light" aria-hidden="true">☀️</span>
+        <span class="theme-icon theme-icon--dark" aria-hidden="true">🌙</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main" class="main-content">
+
+    <!-- Search Section -->
+    <section class="section" aria-labelledby="search-heading">
+      <h2 id="search-heading" class="section-title">Track a Package</h2>
+      <form id="track-form" class="search-form" novalidate>
+        <div class="input-group">
+          <label for="tracking-input" class="visually-hidden">Tracking Number</label>
+          <input
+            type="text"
+            id="tracking-input"
+            name="trackingNumber"
+            class="input"
+            placeholder="Enter UPS tracking number (e.g. 1Z999AA10123456784)"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            maxlength="100"
+          />
+        </div>
+        <div class="search-actions">
+          <button type="submit" id="track-btn" class="btn btn--primary">
+            <span class="btn-text">Track Package</span>
+          </button>
+          <button type="button" id="demo-btn" class="btn btn--secondary">
+            Load Demo Data
+          </button>
+        </div>
+      </form>
+      <p id="input-error" class="input-error" role="alert" aria-live="polite" hidden></p>
+    </section>
+
+    <!-- Status Area -->
+    <section id="status-area" class="section status-area" aria-live="polite" aria-atomic="true">
+      <div id="status-idle" class="status-message status-message--idle">
+        <span aria-hidden="true">🔍</span>
+        Enter a tracking number above to look up your shipment, or load the demo to preview the dashboard.
+      </div>
+      <div id="status-loading" class="status-message status-message--loading" hidden>
+        <span class="spinner" role="status" aria-label="Loading"></span>
+        Fetching tracking data…
+      </div>
+      <div id="status-error" class="status-message status-message--error" role="alert" hidden>
+        <span aria-hidden="true">⚠️</span>
+        <span id="status-error-text"></span>
+      </div>
+    </section>
+
+    <!-- Results Area (hidden until data is loaded) -->
+    <div id="results-area" hidden>
+
+      <!-- Summary Cards -->
+      <section class="section" aria-labelledby="summary-heading">
+        <h2 id="summary-heading" class="section-title">Shipment Summary</h2>
+        <div class="cards-grid">
+
+          <div class="card" aria-labelledby="card-tracking-label">
+            <p id="card-tracking-label" class="card-label">Tracking Number</p>
+            <p id="card-tracking-value" class="card-value card-value--mono">—</p>
+          </div>
+
+          <div class="card" aria-labelledby="card-status-label">
+            <p id="card-status-label" class="card-label">Shipment Status</p>
+            <p id="card-status-value" class="card-value">
+              <span id="status-badge" class="status-badge">—</span>
+            </p>
+          </div>
+
+          <div class="card" aria-labelledby="card-location-label">
+            <p id="card-location-label" class="card-label">Latest Scan Location</p>
+            <p id="card-location-value" class="card-value">—</p>
+          </div>
+
+          <div class="card" aria-labelledby="card-delivery-label">
+            <p id="card-delivery-label" class="card-label">Estimated Delivery</p>
+            <p id="card-delivery-value" class="card-value">—</p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Timeline / Events -->
+      <section class="section" aria-labelledby="timeline-heading">
+        <h2 id="timeline-heading" class="section-title">Scan History</h2>
+        <ol id="events-list" class="timeline" aria-label="Package scan events"></ol>
+        <p id="events-empty" class="empty-state" hidden>No scan events available for this shipment.</p>
+      </section>
+
+      <!-- Raw JSON Inspector -->
+      <section class="section" aria-labelledby="raw-heading">
+        <details id="raw-details" class="raw-details">
+          <summary id="raw-heading" class="raw-summary">
+            <span class="raw-summary-label">Raw API Response</span>
+            <span class="raw-summary-hint">For debugging backend responses</span>
+          </summary>
+          <div class="raw-body">
+            <button type="button" id="copy-raw-btn" class="btn btn--ghost btn--sm" aria-label="Copy raw JSON to clipboard">
+              Copy JSON
+            </button>
+            <pre id="raw-json" class="raw-json" role="region" aria-label="Raw JSON response" tabindex="0"><code></code></pre>
+          </div>
+        </details>
+      </section>
+
+    </div>
+    <!-- /results-area -->
+
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <p class="footer-note">
+      Live UPS data is fetched via a secure backend API — no UPS credentials are stored in this browser application.
+    </p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
