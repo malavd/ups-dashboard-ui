@@ -246,7 +246,7 @@
         return;
       }
       setManifestStatus("Shipment removed.", "success");
-      await loadManifestDetail(currentManifestId);
+      await (currentManifestId);
     } catch (err) {
       setManifestStatus("Network error while removing shipment.", "error");
     }
@@ -334,8 +334,8 @@
       const res = await fetch(API_BASE_URL + "/api/manifests/" + encodeURIComponent(manifestId));
       const data = await res.json();
       manifestDetail.hidden = false;
-      manifestDetailTitle.textContent = data.name || "";
-      renderManifestShipments(data.shipments || []);
+            manifestDetailTitle.textContent = (data.manifest && data.manifest.name) || "";
+            renderManifestShipments((data.manifest && data.manifest.shipments) || []);
     } catch (err) {
       setManifestStatus("Error loading manifest detail.", "error");
     }
