@@ -236,3 +236,201 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Manifest UI enhancements */
+.muted {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin-bottom: var(--space-4);
+}
+
+.manifest-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+  justify-content: space-between;
+}
+
+.manifest-select-row {
+  flex: 1 1 260px;
+}
+
+.manifest-toolbar-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.btn-danger {
+  background: transparent;
+  color: #b3261e;
+  border-color: #b3261e;
+}
+
+.btn-danger:hover {
+  background: #b3261e;
+  color: #fff;
+}
+
+.btn-icon {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  border-radius: var(--radius-md);
+  border: 1px solid oklch(from var(--color-text) l c h / 0.12);
+  background: var(--color-surface);
+  color: #b3261e;
+  cursor: pointer;
+}
+
+.btn-icon:hover {
+  background: #b3261e;
+  color: #fff;
+}
+
+.manifest-detail-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.manifest-summary-chips {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: oklch(from var(--color-text) l c h / 0.06);
+  color: var(--color-text-muted);
+}
+
+.chip-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.shipment-list {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.shipment-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid oklch(from var(--color-text) l c h / 0.1);
+  background: var(--color-bg);
+}
+
+.shipment-carrier-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+.shipment-main {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.shipment-tracking {
+  font-weight: 700;
+  font-size: 1rem;
+  word-break: break-all;
+}
+
+.shipment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.shipment-meta strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  width: fit-content;
+}
+
+.status-badge--delivered {
+  background: oklch(0.9 0.08 145);
+  color: #1d5c2b;
+}
+
+.status-badge--transit {
+  background: oklch(0.9 0.06 250);
+  color: #1d4c8c;
+}
+
+.status-badge--pending,
+.status-badge--unknown {
+  background: oklch(from var(--color-text) l c h / 0.08);
+  color: var(--color-text-muted);
+}
+
+.status-badge--exception,
+.status-badge--failure {
+  background: oklch(0.92 0.09 25);
+  color: #a12c1e;
+}
+
+.shipment-actions {
+  display: flex;
+  align-items: center;
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: var(--space-6);
+  font-size: 0.95rem;
+}
+
+@media (max-width: 640px) {
+  .shipment-card {
+    grid-template-columns: auto 1fr;
+  }
+  .shipment-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}
