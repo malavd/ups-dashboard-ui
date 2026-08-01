@@ -118,12 +118,13 @@
               <option value="">-- Select a manifest --</option>
             </select>
             <button type="button" id="refresh-manifests-btn" class="btn btn-secondary">Refresh List</button>
+            <button type="button" id="delete-manifest-btn" class="btn btn-danger" hidden>Delete Manifest</button>
           </div>
+          <p id="no-manifest-message" class="muted" hidden>No manifest selected.</p>
         </div>
 
         <div id="manifest-detail" class="card" hidden>
           <h3 class="card-title" id="manifest-detail-title">Manifest</h3>
-
           <form id="add-shipment-form" class="track-form">
             <div class="form-row">
               <label for="manifest-carrier" class="label">Carrier</label>
@@ -143,9 +144,7 @@
               <button type="button" id="refresh-tracking-btn" class="btn btn-secondary">Refresh Tracking</button>
             </div>
           </form>
-
           <div id="manifest-status-area" class="status-area" aria-live="polite"></div>
-
           <table class="manifest-table">
             <thead>
               <tr>
@@ -154,6 +153,7 @@
                 <th>Status</th>
                 <th>Latest Location</th>
                 <th>ETA</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="manifest-shipments-body"></tbody>
@@ -173,6 +173,7 @@
       </p>
     </div>
   </footer>
+
   <script src="./assets/js/app.js"></script>
 </body>
 </html>
