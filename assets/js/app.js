@@ -1,6 +1,5 @@
 (function () {
   "use strict";
-
   const API_BASE_URL = "https://ups-dashboard-api.vercel.app";
 
   const form = document.getElementById("track-form");
@@ -258,4 +257,310 @@
       main.appendChild(tracking);
 
       const meta = document.createElement("div");
-      meta.className
+      meta.className = "shipment-meta";
+      const statusSpan = document.createElement("span");
+      statusSpan.className = "status-badge " + statusBadgeClass(s.status);
+      statusSpan.textContent = (s.status || "UNKNOWN").toUpperCase();
+      meta.appendChild(statusSpan);
+      if (s.latestLocation) {
+        const locSpan = document.createElement("span");
+        locSpan.textContent = "Location: " + s.latestLocation;
+        meta.appendChild(locSpan);
+      }
+      if (s.estimatedDelivery) {
+        const etaSpan = document.createElement("span");
+        etaSpan.textContent = "ETA: " + new Date(s.estimatedDelivery).toLocaleDateString();
+        meta.appendChild(etaSpan);
+      }
+      main.appendChild(meta);
+      card.appendChild(main);
+
+      const actions = document.createElement("div");
+      actions.className = "shipment-actions";
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "btn-icon";
+      removeBtn.textContent = "Remove";
+      removeBtn.addEventListener("click", () => removeShipment(s.id || s._id));
+      actions.appendChild(removeBtn);
+      card.appendChild(actions);
+
+      manifestShipmentsBody.appendChild(card);
+    });
+  }
+
+  async function removeShipment(shipmentId) {
+    if (!currentManifestId || !shipmentId) return;
+    const confirmed = window.confirm("Remove this shipment from the manifest?");
+    if (!confirmed) return;
+    setManifestStatus("Removing shipment...", "loading");
+    try {
+      const res = await fetch(
+        API_BASE_URL +
+          "/api/manifests/" +
+          currentManifestId +
+          "/shipments?shipmentId=" +
+          encodeURIComponent(shipmentId),
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setManifestStatus("Failed to remove shipment.", "error");
+        return;
+      }
+      setManifestStatus("Shipment removed.", "success");
+      loadManifestDetail(currentManifestId);
+    } catch (err) {
+      setManifestStatus("Network error while removing shipment.", "error");
+    }
+  }
+
+  async function loadManifests(selectId) {
+    try {
+      const res = await fetch(API_BASE_URL + "/api/manifests");
+      const data = await res.json();
+      if (!res.ok || !data.ok) return;
+      const manifests = data.manifests || [];
+      manifestSelect.innerHTML = '<option value="">-- Select a manifest --</option>';
+      manifests.forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m.id || m._id;
+        opt.textContent = m.name || opt.value;
+        manifestSelect.appendChild(opt);
+      });
+      let targetId = selectId;
+      if (targetId && !manifests.some((m) => (m.id || m._id) === targetId)) {
+        targetId = null;
+      }
+      if (!targetId && manifests.length > 0) {
+        targetId = manifests[0].id || manifests[0]._id;
+      }
+      if (targetId) {
+        manifestSelect.value = targetId;
+        loadManifestDetail(targetId);
+      } else {
+        manifestSelect.value = "";
+        showNoManifestState();
+      }
+    } catch (err) {
+      setManifestStatus("Failed to load manifests.", "error");
+    }
+  }
+
+  function showNoManifestState() {
+    currentManifestId = null;
+    manifestDetail.hidden = true;
+    if (noManifestMessage) noManifestMessage.hidden = false;
+    if (deleteManifestBtn) deleteManifestBtn.hidden = true;
+  }
+
+  async function loadManifestDetail(id) {
+    if (!id) {
+      showNoManifestState();
+      return;
+    }
+    try {
+      const res = await fetch(API_BASE_URL + "/api/manifests/" + id);
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setManifestStatus("Failed to load manifest.", "error");
+        return;
+      }
+      currentManifestId = id;
+      if (noManifestMessage) noManifestMessage.hidden = true;
+      if (deleteManifestBtn) deleteManifestBtn.hidden = false;
+      manifestDetail.hidden = false;
+      manifestDetailTitle.textContent = data.manifest.name || "Manifest";
+      renderManifestShipments(data.manifest.shipments || []);
+    } catch (err) {
+      setManifestStatus("Network error while loading manifest.", "error");
+    }
+  }
+
+  if (createManifestForm) {
+    createManifestForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = manifestNameEl.value.trim();
+      if (!name) return;
+      try {
+        const res = await fetch(API_BASE_URL + "/api/manifests", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          setManifestStatus("Failed to create manifest.", "error");
+          return;
+        }
+        manifestNameEl.value = "";
+        setManifestStatus("Manifest created.", "success");
+        const newId = data.manifest.id || data.manifest._id;
+        await loadManifests(newId);
+      } catch (err) {
+        setManifestStatus("Network error while creating manifest.", "error");
+      }
+    });
+  }
+
+  if (manifestSelect) {
+    manifestSelect.addEventListener("change", () => {
+      loadManifestDetail(manifestSelect.value);
+    });
+  }
+
+  if (refreshManifestsBtn) {
+    refreshManifestsBtn.addEventListener("click", () => loadManifests(currentManifestId));
+  }
+
+  if (deleteManifestBtn) {
+    deleteManifestBtn.addEventListener("click", async () => {
+      if (!currentManifestId) return;
+      const name = manifestDetailTitle ? manifestDetailTitle.textContent : "this manifest";
+      const confirmed = window.confirm(
+        'Delete manifest "' + name + '"? This removes all shipments in it.'
+      );
+      if (!confirmed) return;
+      setManifestStatus("Deleting manifest...", "loading");
+      try {
+        const res = await fetch(API_BASE_URL + "/api/manifests/" + currentManifestId, {
+          method: "DELETE",
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          setManifestStatus("Failed to delete manifest.", "error");
+          return;
+        }
+        setManifestStatus("Manifest deleted.", "success");
+        await loadManifests();
+      } catch (err) {
+        setManifestStatus("Network error while deleting manifest.", "error");
+      }
+    });
+  }
+
+  // ---- Carrier auto-detect hint wiring for manifest add-shipment form ----
+  if (manifestCarrierDetectedHint && manifestCarrierEl && manifestTrackingEl) {
+    manifestTrackingEl.addEventListener("input", () => {
+      updateDetectedHint(manifestCarrierDetectedHint, manifestCarrierEl, manifestTrackingEl.value.trim());
+    });
+    manifestCarrierEl.addEventListener("change", () => {
+      updateDetectedHint(manifestCarrierDetectedHint, manifestCarrierEl, manifestTrackingEl.value.trim());
+    });
+  }
+
+  // ---- Add shipment (supports bulk, comma-separated tracking numbers) ----
+  if (addShipmentForm) {
+    addShipmentForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!currentManifestId) {
+        setManifestStatus("Select a manifest first.", "error");
+        return;
+      }
+      const rawInput = manifestTrackingEl.value.trim();
+      if (!rawInput) {
+        setManifestStatus("Enter at least one tracking number.", "error");
+        return;
+      }
+
+      const trackingNumbers = rawInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+
+      if (trackingNumbers.length === 0) {
+        setManifestStatus("Enter at least one valid tracking number.", "error");
+        return;
+      }
+
+      setManifestStatus(
+        trackingNumbers.length > 1
+          ? "Adding " + trackingNumbers.length + " shipments..."
+          : "Adding shipment...",
+        "loading"
+      );
+
+      let successCount = 0;
+      let failCount = 0;
+      const failedNumbers = [];
+
+      for (const trackingNumber of trackingNumbers) {
+        const { carrier, detectedLabel } = resolveCarrier(manifestCarrierEl, trackingNumber);
+        if (!carrier) {
+          failCount++;
+          failedNumbers.push(trackingNumber + " (carrier undetected)");
+          continue;
+        }
+        try {
+          const res = await fetch(
+            API_BASE_URL + "/api/manifests/" + currentManifestId + "/shipments",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ carrier, trackingNumber }),
+            }
+          );
+          const data = await res.json();
+          if (!res.ok || !data.ok) {
+            failCount++;
+            failedNumbers.push(
+              trackingNumber + " (" + ((data && data.error && data.error.message) || "failed") + ")"
+            );
+          } else {
+            successCount++;
+          }
+        } catch (err) {
+          failCount++;
+          failedNumbers.push(trackingNumber + " (network error)");
+        }
+      }
+
+      manifestTrackingEl.value = "";
+
+      if (successCount > 0 && failCount === 0) {
+        setManifestStatus(
+          successCount === 1 ? "Shipment added." : successCount + " shipments added.",
+          "success"
+        );
+      } else if (successCount > 0 && failCount > 0) {
+        setManifestStatus(
+          successCount + " added, " + failCount + " failed: " + failedNumbers.join("; "),
+          "error"
+        );
+      } else {
+        setManifestStatus("Failed to add shipment(s): " + failedNumbers.join("; "), "error");
+      }
+
+      loadManifestDetail(currentManifestId);
+    });
+  }
+
+  if (refreshTrackingBtn) {
+    refreshTrackingBtn.addEventListener("click", async () => {
+      if (!currentManifestId) {
+        setManifestStatus("Select a manifest first.", "error");
+        return;
+      }
+      setManifestStatus("Refreshing tracking...", "loading");
+      try {
+        const res = await fetch(
+          API_BASE_URL + "/api/manifests/" + currentManifestId + "/track",
+          { method: "POST" }
+        );
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          setManifestStatus("Failed to refresh tracking.", "error");
+          return;
+        }
+        setManifestStatus("Tracking refreshed.", "success");
+        loadManifestDetail(currentManifestId);
+      } catch (err) {
+        setManifestStatus("Network error while refreshing tracking.", "error");
+      }
+    });
+  }
+
+  if (manifestSelect) {
+    loadManifests();
+  }
+})();
