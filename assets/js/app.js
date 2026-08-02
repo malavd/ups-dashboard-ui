@@ -1,6 +1,5 @@
 (function () {
   "use strict";
-
   const API_BASE_URL = "https://ups-dashboard-api.vercel.app";
 
   const form = document.getElementById("track-form");
@@ -10,6 +9,7 @@
   const resultArea = document.getElementById("result-area");
   const demoBtn = document.getElementById("demo-btn");
   const themeToggle = document.getElementById("theme-toggle");
+  const carrierDetectedHint = document.getElementById("carrier-detected-hint");
 
   const summaryTracking = document.getElementById("summary-tracking");
   const summaryCarrier = document.getElementById("summary-carrier");
@@ -18,6 +18,12 @@
   const summaryEta = document.getElementById("summary-eta");
   const timeline = document.getElementById("timeline");
   const rawJson = document.getElementById("raw-json");
+
+  const detectCarrier =
+    (window.CarrierDetect && window.CarrierDetect.detectCarrier) ||
+    function (input) {
+      return { carrier: "Unknown", format: null, sanitized: (input || "").toString() };
+    };
 
   function setStatus(text, tone) {
     statusArea.innerHTML = "";
@@ -52,9 +58,7 @@
           ? new Date(evt.timestamp).toLocaleString() + " - "
           : "";
         li.textContent =
-          timePart +
-          (evt.location ? evt.location + ": " : "") +
-          (evt.description || "");
+          timePart + (evt.location ? evt.location + ": " : "") + (evt.description || "");
         timeline.appendChild(li);
       });
     }
@@ -92,16 +96,62 @@
     }
   }
 
+  function resolveCarrier(selectEl, rawTrackingNumber) {
+    const selected = (selectEl.value || "").trim().toLowerCase();
+    if (selected !== "auto") {
+      return { carrier: selected, detectedLabel: "" };
+    }
+    const result = detectCarrier(rawTrackingNumber);
+    if (result.carrier === "Unknown") {
+      return { carrier: "", detectedLabel: "Unknown" };
+    }
+    return { carrier: result.carrier.toLowerCase(), detectedLabel: result.carrier };
+  }
+
+  function updateDetectedHint(hintEl, selectEl, rawTrackingNumber) {
+    if (!hintEl) return;
+    const selected = (selectEl.value || "").trim().toLowerCase();
+    if (selected !== "auto" || !rawTrackingNumber) {
+      hintEl.hidden = true;
+      hintEl.textContent = "";
+      return;
+    }
+    const result = detectCarrier(rawTrackingNumber);
+    hintEl.hidden = false;
+    hintEl.textContent =
+      result.carrier === "Unknown"
+        ? "Could not auto-detect carrier for this tracking number."
+        : "Detected carrier: " + result.carrier;
+  }
+
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-    const carrier = carrierEl.value.trim();
     const trackingNumber = trackingEl.value.trim();
-    if (!carrier || !trackingNumber) {
-      setStatus("Please enter a carrier and tracking number.", "error");
+    if (!trackingNumber) {
+      setStatus("Please enter a tracking number.", "error");
+      return;
+    }
+    const { carrier, detectedLabel } = resolveCarrier(carrierEl, trackingNumber);
+    if (!carrier) {
+      setStatus(
+        detectedLabel === "Unknown"
+          ? "Could not auto-detect carrier. Please select one manually."
+          : "Please enter a carrier and tracking number.",
+        "error"
+      );
       return;
     }
     trackPackage(carrier, trackingNumber);
   });
+
+  if (carrierDetectedHint) {
+    trackingEl.addEventListener("input", () => {
+      updateDetectedHint(carrierDetectedHint, carrierEl, trackingEl.value.trim());
+    });
+    carrierEl.addEventListener("change", () => {
+      updateDetectedHint(carrierDetectedHint, carrierEl, trackingEl.value.trim());
+    });
+  }
 
   demoBtn.addEventListener("click", () => {
     carrierEl.value = "shippo";
@@ -130,6 +180,7 @@
   const addShipmentForm = document.getElementById("add-shipment-form");
   const manifestCarrierEl = document.getElementById("manifest-carrier");
   const manifestTrackingEl = document.getElementById("manifest-tracking-number");
+  const manifestCarrierDetectedHint = document.getElementById("manifest-carrier-detected-hint");
   const refreshTrackingBtn = document.getElementById("refresh-tracking-btn");
   const manifestStatusArea = document.getElementById("manifest-status-area");
   const manifestShipmentsBody = document.getElementById("manifest-shipments-body");
@@ -187,9 +238,7 @@
       renderManifestSummaryChips([]);
       return;
     }
-
     renderManifestSummaryChips(shipments);
-
     shipments.forEach((s) => {
       const card = document.createElement("div");
       card.className = "shipment-card";
@@ -209,25 +258,20 @@
 
       const meta = document.createElement("div");
       meta.className = "shipment-meta";
-
       const statusSpan = document.createElement("span");
       statusSpan.className = "status-badge " + statusBadgeClass(s.status);
-      statusSpan.textContent = s.status || "UNKNOWN";
+      statusSpan.textContent = (s.status || "UNKNOWN").toUpperCase();
       meta.appendChild(statusSpan);
-
       if (s.latestLocation) {
         const locSpan = document.createElement("span");
-        locSpan.innerHTML = "<strong>Location:</strong> " + s.latestLocation;
+        locSpan.textContent = "Location: " + s.latestLocation;
         meta.appendChild(locSpan);
       }
-
       if (s.estimatedDelivery) {
         const etaSpan = document.createElement("span");
-        etaSpan.innerHTML =
-          "<strong>ETA:</strong> " + new Date(s.estimatedDelivery).toLocaleDateString();
+        etaSpan.textContent = "ETA: " + new Date(s.estimatedDelivery).toLocaleDateString();
         meta.appendChild(etaSpan);
       }
-
       main.appendChild(meta);
       card.appendChild(main);
 
@@ -284,7 +328,6 @@
         opt.textContent = m.name || opt.value;
         manifestSelect.appendChild(opt);
       });
-
       let targetId = selectId;
       if (targetId && !manifests.some((m) => (m.id || m._id) === targetId)) {
         targetId = null;
@@ -292,7 +335,6 @@
       if (!targetId && manifests.length > 0) {
         targetId = manifests[0].id || manifests[0]._id;
       }
-
       if (targetId) {
         manifestSelect.value = targetId;
         loadManifestDetail(targetId);
@@ -397,6 +439,17 @@
     });
   }
 
+  // ---- Carrier auto-detect hint wiring for manifest add-shipment form ----
+  if (manifestCarrierDetectedHint && manifestCarrierEl && manifestTrackingEl) {
+    manifestTrackingEl.addEventListener("input", () => {
+      updateDetectedHint(manifestCarrierDetectedHint, manifestCarrierEl, manifestTrackingEl.value.trim());
+    });
+    manifestCarrierEl.addEventListener("change", () => {
+      updateDetectedHint(manifestCarrierDetectedHint, manifestCarrierEl, manifestTrackingEl.value.trim());
+    });
+  }
+
+  // ---- Add shipment (supports bulk, comma-separated tracking numbers) ----
   if (addShipmentForm) {
     addShipmentForm.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -404,35 +457,81 @@
         setManifestStatus("Select a manifest first.", "error");
         return;
       }
-      const carrier = manifestCarrierEl.value.trim();
-      const trackingNumber = manifestTrackingEl.value.trim();
-      if (!carrier || !trackingNumber) {
-        setManifestStatus("Enter a carrier and tracking number.", "error");
+      const rawInput = manifestTrackingEl.value.trim();
+      if (!rawInput) {
+        setManifestStatus("Enter at least one tracking number.", "error");
         return;
       }
-      try {
-        const res = await fetch(
-          API_BASE_URL + "/api/manifests/" + currentManifestId + "/shipments",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ carrier, trackingNumber }),
-          }
-        );
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          setManifestStatus(
-            (data && data.error && data.error.message) || "Failed to add shipment.",
-            "error"
-          );
-          return;
-        }
-        manifestTrackingEl.value = "";
-        setManifestStatus("Shipment added.", "success");
-        loadManifestDetail(currentManifestId);
-      } catch (err) {
-        setManifestStatus("Network error while adding shipment.", "error");
+
+      const trackingNumbers = rawInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+
+      if (trackingNumbers.length === 0) {
+        setManifestStatus("Enter at least one valid tracking number.", "error");
+        return;
       }
+
+      setManifestStatus(
+        trackingNumbers.length > 1
+          ? "Adding " + trackingNumbers.length + " shipments..."
+          : "Adding shipment...",
+        "loading"
+      );
+
+      let successCount = 0;
+      let failCount = 0;
+      const failedNumbers = [];
+
+      for (const trackingNumber of trackingNumbers) {
+        const { carrier, detectedLabel } = resolveCarrier(manifestCarrierEl, trackingNumber);
+        if (!carrier) {
+          failCount++;
+          failedNumbers.push(trackingNumber + " (carrier undetected)");
+          continue;
+        }
+        try {
+          const res = await fetch(
+            API_BASE_URL + "/api/manifests/" + currentManifestId + "/shipments",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ carrier, trackingNumber }),
+            }
+          );
+          const data = await res.json();
+          if (!res.ok || !data.ok) {
+            failCount++;
+            failedNumbers.push(
+              trackingNumber + " (" + ((data && data.error && data.error.message) || "failed") + ")"
+            );
+          } else {
+            successCount++;
+          }
+        } catch (err) {
+          failCount++;
+          failedNumbers.push(trackingNumber + " (network error)");
+        }
+      }
+
+      manifestTrackingEl.value = "";
+
+      if (successCount > 0 && failCount === 0) {
+        setManifestStatus(
+          successCount === 1 ? "Shipment added." : successCount + " shipments added.",
+          "success"
+        );
+      } else if (successCount > 0 && failCount > 0) {
+        setManifestStatus(
+          successCount + " added, " + failCount + " failed: " + failedNumbers.join("; "),
+          "error"
+        );
+      } else {
+        setManifestStatus("Failed to add shipment(s): " + failedNumbers.join("; "), "error");
+      }
+
+      loadManifestDetail(currentManifestId);
     });
   }
 
