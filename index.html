@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Package Tracking Dashboard</title>
-  <meta name="description" content="Multi-carrier package tracking dashboard using Shippo." />
+  <meta name="description" content="Multi-carrier package tracking dashboard." />
   <link rel="stylesheet" href="./assets/css/style.css" />
   <script>
     (function () {
@@ -19,7 +19,7 @@
     <header class="header">
       <div class="container header-inner">
         <div class="brand-block">
-          <p class="eyebrow">Shippo dashboard</p>
+          <p class="eyebrow">Tracking dashboard</p>
           <h1 class="title">Package Tracking Center</h1>
           <p class="subtitle">Track shipments, manage manifests, and keep delivery updates easy to scan.</p>
         </div>
@@ -67,7 +67,6 @@
                   <option value="ups">UPS</option>
                   <option value="usps">USPS</option>
                   <option value="fedex">FedEx</option>
-                  <option value="shippo">Shippo (test)</option>
                 </select>
               </div>
               <div class="form-row">
@@ -84,7 +83,6 @@
               </div>
               <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Track package</button>
-                <button type="button" id="demo-btn" class="btn btn-secondary">Demo mode</button>
               </div>
             </form>
 
@@ -188,7 +186,6 @@
                       <option value="ups">UPS</option>
                       <option value="usps">USPS</option>
                       <option value="fedex">FedEx</option>
-                      <option value="shippo">Shippo (test)</option>
                     </select>
                   </div>
                   <div class="form-row">
@@ -213,10 +210,7 @@
     <footer class="footer">
       <div class="container">
         <p>
-          Data provided by Shippo. See
-          <a href="https://docs.goshippo.com/tracking/tracking" target="_blank" rel="noopener noreferrer">
-            Shippo Tracking API
-          </a>.
+          Tracking data is provided through the dashboard API.
         </p>
       </div>
     </footer>

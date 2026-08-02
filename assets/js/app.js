@@ -7,7 +7,6 @@
   const trackingEl = document.getElementById("trackingNumber");
   const statusArea = document.getElementById("status-area");
   const resultArea = document.getElementById("result-area");
-  const demoBtn = document.getElementById("demo-btn");
   const themeToggle = document.getElementById("theme-toggle");
   const carrierDetectedHint = document.getElementById("carrier-detected-hint");
 
@@ -185,12 +184,6 @@
       updateDetectedHint(carrierDetectedHint, carrierEl, trackingEl.value.trim());
     });
   }
-
-  demoBtn.addEventListener("click", () => {
-    carrierEl.value = "shippo";
-    trackingEl.value = "SHIPPO_TRANSIT";
-    trackPackage("shippo", "SHIPPO_TRANSIT");
-  });
 
   let theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   document.documentElement.setAttribute("data-theme", theme);
