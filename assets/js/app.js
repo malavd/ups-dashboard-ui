@@ -230,27 +230,27 @@
   }
 
   async function removeShipment(shipmentId) {
-    if (!currentManifestId) return;
-    if (!confirm("Remove this shipment from the manifest?")) return;
-    try {
-      const res = await fetch(
-        API_BASE_URL +
-          "/api/manifests/" +
-          encodeURIComponent(currentManifestId) +
-          "/shipments/" +
-          encodeURIComponent(shipmentId),
-        { method: "DELETE" }
-      );
-      if (!res.ok) {
-        setManifestStatus("Could not remove shipment.", "error");
-        return;
-      }
-      setManifestStatus("Shipment removed.", "success");
-      await (currentManifestId);
-    } catch (err) {
-      setManifestStatus("Network error while removing shipment.", "error");
+  if (!currentManifestId) return;
+  if (!confirm("Remove this shipment from the manifest?")) return;
+  try {
+    const res = await fetch(
+      API_BASE_URL +
+        "/api/manifests/" +
+        encodeURIComponent(currentManifestId) +
+        "/shipments?shipmentId=" +
+        encodeURIComponent(shipmentId),
+      { method: "DELETE" }
+    );
+    if (!res.ok) {
+      setManifestStatus("Could not remove shipment.", "error");
+      return;
     }
+    setManifestStatus("Shipment removed.", "success");
+    await loadManifestDetail(currentManifestId);
+  } catch (err) {
+    setManifestStatus("Network error while removing shipment.", "error");
   }
+}
 
   function renderManifestShipments(shipments) {
     manifestShipmentsBody.innerHTML = "";
