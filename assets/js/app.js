@@ -19,11 +19,41 @@
   const timeline = document.getElementById("timeline");
   const rawJson = document.getElementById("raw-json");
 
-  const detectCarrier =
-    (window.CarrierDetect && window.CarrierDetect.detectCarrier) ||
-    function (input) {
-      return { carrier: "Unknown", format: null, sanitized: (input || "").toString() };
-    };
+  function normalizeTrackingNumber(input) {
+    return (input || "")
+      .toString()
+      .trim()
+      .replace(/[^A-Za-z0-9]/g, "")
+      .toUpperCase();
+  }
+
+  function detectCarrier(input) {
+    const normalized = normalizeTrackingNumber(input);
+    if (!normalized) return "Unknown";
+
+    const upsRegexes = [/^1Z[A-Z0-9]{16}$/i, /^\d{9}$/, /^\d{11}$/];
+    const fedExRegexes = [/^\d{12}$/, /^\d{15}$/, /^96\d{18,20}$/];
+    const uspsRegexes = [/^(92|93|94|95)\d{20}$/, /^[A-Z]{2}\d{9}US$/i];
+
+    if (upsRegexes.some((regex) => regex.test(normalized))) return "UPS";
+    if (fedExRegexes.some((regex) => regex.test(normalized))) return "FedEx";
+    if (uspsRegexes.some((regex) => regex.test(normalized))) return "USPS";
+
+    return "Unknown";
+  }
+
+  function mapCarrierToApiValue(carrier) {
+    switch ((carrier || "").toUpperCase()) {
+      case "UPS":
+        return "ups";
+      case "FEDEX":
+        return "fedex";
+      case "USPS":
+        return "usps";
+      default:
+        return (carrier || "").toLowerCase();
+    }
+  }
 
   function setStatus(text, tone) {
     statusArea.innerHTML = "";
@@ -101,11 +131,13 @@
     if (selected !== "auto") {
       return { carrier: selected, detectedLabel: "" };
     }
-    const result = detectCarrier(rawTrackingNumber);
-    if (result.carrier === "Unknown") {
+
+    const detected = detectCarrier(rawTrackingNumber);
+    if (detected === "Unknown") {
       return { carrier: "", detectedLabel: "Unknown" };
     }
-    return { carrier: result.carrier.toLowerCase(), detectedLabel: result.carrier };
+
+    return { carrier: mapCarrierToApiValue(detected), detectedLabel: detected };
   }
 
   function updateDetectedHint(hintEl, selectEl, rawTrackingNumber) {
@@ -116,12 +148,13 @@
       hintEl.textContent = "";
       return;
     }
-    const result = detectCarrier(rawTrackingNumber);
+
+    const detected = detectCarrier(rawTrackingNumber);
     hintEl.hidden = false;
     hintEl.textContent =
-      result.carrier === "Unknown"
+      detected === "Unknown"
         ? "Could not auto-detect carrier for this tracking number."
-        : "Detected carrier: " + result.carrier;
+        : "Auto-detected carrier: " + detected;
   }
 
   form.addEventListener("submit", (e) => {
@@ -161,10 +194,12 @@
 
   let theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   document.documentElement.setAttribute("data-theme", theme);
+  themeToggle.querySelector(".theme-icon").textContent = theme === "dark" ? "☀︎" : "🌙";
+  trackingEl.focus();
   themeToggle.addEventListener("click", () => {
     theme = theme === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", theme);
-    themeToggle.querySelector(".theme-icon").textContent = theme === "dark" ? "DARK" : "LIGHT";
+    themeToggle.querySelector(".theme-icon").textContent = theme === "dark" ? "☀︎" : "🌙";
   });
 
   // ---- Manifest feature ----

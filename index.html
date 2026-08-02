@@ -7,167 +7,220 @@
   <meta name="description" content="Multi-carrier package tracking dashboard using Shippo." />
   <link rel="stylesheet" href="./assets/css/style.css" />
   <script>
-    (function(){
-      const r=document.documentElement;
-      let d=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
-      r.setAttribute('data-theme',d);
+    (function () {
+      const root = document.documentElement;
+      const preferred = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      root.setAttribute('data-theme', preferred);
     })();
   </script>
 </head>
 <body>
-  <header class="header">
-    <div class="container header-inner">
-      <h1 class="title">Package Tracking Dashboard</h1>
-      <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
-        <span class="theme-icon">🌙</span>
-      </button>
-    </div>
-  </header>
-
-  <main class="main">
-    <section class="section">
-      <div class="container">
-        <form id="track-form" class="track-form">
-          <div class="form-row">
-            <label for="carrier" class="label">Carrier</label>
-            <select id="carrier" name="carrier" class="input">
-              <option value="ups">UPS</option>
-              <option value="usps">USPS</option>
-              <option value="fedex">FedEx</option>
-              <option value="shippo">Shippo (test)</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label for="trackingNumber" class="label">Tracking Number</label>
-            <input
-              type="text"
-              id="trackingNumber"
-              name="trackingNumber"
-              placeholder="e.g. 1Z999AA10123456784"
-              class="input"
-              required
-            />
-          </div>
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Track</button>
-            <button type="button" id="demo-btn" class="btn btn-secondary">Demo (test)</button>
-          </div>
-        </form>
-        <div id="status-area" class="status-area" aria-live="polite"></div>
-        <div id="result-area" class="result-area" hidden>
-          <div class="card">
-            <h2 class="card-title">Shipment Summary</h2>
-            <div class="summary-grid">
-              <div class="summary-item">
-                <span class="summary-label">Tracking Number</span>
-                <span id="summary-tracking" class="summary-value"></span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">Carrier</span>
-                <span id="summary-carrier" class="summary-value"></span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">Status</span>
-                <span id="summary-status" class="summary-value"></span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">Latest Location</span>
-                <span id="summary-location" class="summary-value"></span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">Estimated Delivery</span>
-                <span id="summary-eta" class="summary-value"></span>
-              </div>
-            </div>
-          </div>
-          <div class="card">
-            <h2 class="card-title">Tracking Timeline</h2>
-            <ol id="timeline" class="timeline"></ol>
-          </div>
-          <details class="details">
-            <summary class="details-summary">Raw JSON</summary>
-            <pre id="raw-json" class="raw-json"></pre>
-          </details>
+  <div class="app-shell">
+    <header class="header">
+      <div class="container header-inner">
+        <div class="brand-block">
+          <p class="eyebrow">Shippo dashboard</p>
+          <h1 class="title">Package Tracking Center</h1>
+          <p class="subtitle">Track shipments, manage manifests, and keep delivery updates easy to scan.</p>
         </div>
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+          <span class="theme-icon">🌙</span>
+        </button>
       </div>
-    </section>
+    </header>
 
-    <section class="section">
+    <main class="main">
       <div class="container">
-        <h2 class="card-title">Shipment Manifests</h2>
-        <p class="muted">Group multiple shipments into a manifest and refresh tracking for all of them at once.</p>
-
-        <div class="card">
-          <h3 class="card-title">Create Manifest</h3>
-          <form id="create-manifest-form" class="track-form">
-            <div class="form-row">
-              <label for="manifest-name" class="label">Manifest Name</label>
-              <input type="text" id="manifest-name" name="manifest-name" placeholder="e.g. Weekly Orders 11/24" class="input" required />
+        <section class="hero-card">
+          <div class="hero-copy">
+            <span class="hero-pill">Live tracking workspace</span>
+            <h2>Fast, clear shipment visibility</h2>
+            <p>Search one package or keep a whole delivery run organized in a calm, focused workspace.</p>
+          </div>
+          <div class="hero-meta">
+            <div class="hero-meta-item">
+              <strong>Quick track</strong>
+              <span>One input, one action.</span>
             </div>
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary">Create Manifest</button>
-            </div>
-          </form>
-        </div>
-
-        <div class="card">
-          <h3 class="card-title">Manifests</h3>
-          <div class="manifest-toolbar">
-            <div class="manifest-select-row">
-              <label for="manifest-select" class="label">Select Manifest</label>
-              <select id="manifest-select" class="input">
-                <option value="">-- Select a manifest --</option>
-              </select>
-            </div>
-            <div class="manifest-toolbar-actions">
-              <button type="button" id="refresh-manifests-btn" class="btn btn-secondary">Refresh List</button>
-              <button type="button" id="delete-manifest-btn" class="btn btn-danger" hidden>Delete Manifest</button>
+            <div class="hero-meta-item">
+              <strong>Manifest mode</strong>
+              <span>Collect and refresh multiple shipments together.</span>
             </div>
           </div>
-          <p id="no-manifest-message" class="muted" hidden>No manifest selected.</p>
-        </div>
+        </section>
 
-        <div id="manifest-detail" class="card" hidden>
-          <div class="manifest-detail-header">
-            <h3 class="card-title" id="manifest-detail-title">Manifest</h3>
-            <div id="manifest-summary-chips" class="manifest-summary-chips"></div>
+        <section class="dashboard-grid">
+          <div class="panel panel-primary">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Track</p>
+                <h3>Single shipment</h3>
+              </div>
+              <span class="panel-badge">Live</span>
+            </div>
+
+            <form id="track-form" class="track-form">
+              <div class="form-row">
+                <label for="carrier" class="label">Carrier</label>
+                <select id="carrier" name="carrier" class="input">
+                  <option value="auto">Auto-detect</option>
+                  <option value="ups">UPS</option>
+                  <option value="usps">USPS</option>
+                  <option value="fedex">FedEx</option>
+                  <option value="shippo">Shippo (test)</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label for="trackingNumber" class="label">Tracking Number</label>
+                <input
+                  type="text"
+                  id="trackingNumber"
+                  name="trackingNumber"
+                  placeholder="e.g. 1Z999AA10123456784"
+                  class="input"
+                  required
+                />
+                <p id="carrier-detected-hint" class="detect-hint" hidden></p>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Track package</button>
+                <button type="button" id="demo-btn" class="btn btn-secondary">Demo mode</button>
+              </div>
+            </form>
+
+            <div id="status-area" class="status-area" aria-live="polite"></div>
+
+            <div id="result-area" class="result-area" hidden>
+              <div class="card summary-card">
+                <div class="card-top">
+                  <h4 class="card-title">Shipment summary</h4>
+                  <span class="card-chip">Updated</span>
+                </div>
+                <div class="summary-grid">
+                  <div class="summary-item">
+                    <span class="summary-label">Tracking Number</span>
+                    <span id="summary-tracking" class="summary-value"></span>
+                  </div>
+                  <div class="summary-item">
+                    <span class="summary-label">Carrier</span>
+                    <span id="summary-carrier" class="summary-value"></span>
+                  </div>
+                  <div class="summary-item">
+                    <span class="summary-label">Status</span>
+                    <span id="summary-status" class="summary-value"></span>
+                  </div>
+                  <div class="summary-item">
+                    <span class="summary-label">Latest Location</span>
+                    <span id="summary-location" class="summary-value"></span>
+                  </div>
+                  <div class="summary-item">
+                    <span class="summary-label">Estimated Delivery</span>
+                    <span id="summary-eta" class="summary-value"></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-top">
+                  <h4 class="card-title">Tracking timeline</h4>
+                  <span class="card-chip subtle">Recent activity</span>
+                </div>
+                <ol id="timeline" class="timeline"></ol>
+              </div>
+
+              <details class="details">
+                <summary class="details-summary">Raw JSON</summary>
+                <pre id="raw-json" class="raw-json"></pre>
+              </details>
+            </div>
           </div>
-          <form id="add-shipment-form" class="track-form">
-            <div class="form-row">
-              <label for="manifest-carrier" class="label">Carrier</label>
-              <select id="manifest-carrier" class="input">
-                <option value="ups">UPS</option>
-                <option value="usps">USPS</option>
-                <option value="fedex">FedEx</option>
-                <option value="shippo">Shippo (test)</option>
-              </select>
+
+          <div class="panel panel-secondary">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Manifest</p>
+                <h3>Shipment bundles</h3>
+              </div>
+              <span class="panel-badge muted">Organized</span>
             </div>
-            <div class="form-row">
-              <label for="manifest-tracking-number" class="label">Tracking Number</label>
-              <input type="text" id="manifest-tracking-number" class="input" placeholder="e.g. 1Z999AA10123456784" required />
+
+            <div class="manifest-stack">
+              <div class="mini-card">
+                <h4 class="card-title">Create manifest</h4>
+                <form id="create-manifest-form" class="track-form compact-form">
+                  <div class="form-row">
+                    <label for="manifest-name" class="label">Manifest Name</label>
+                    <input type="text" id="manifest-name" name="manifest-name" placeholder="e.g. Weekly Orders 11/24" class="input" required />
+                  </div>
+                  <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Create manifest</button>
+                  </div>
+                </form>
+              </div>
+
+              <div class="mini-card">
+                <h4 class="card-title">Manage manifests</h4>
+                <div class="manifest-toolbar">
+                  <div class="manifest-select-row">
+                    <label for="manifest-select" class="label">Select Manifest</label>
+                    <select id="manifest-select" class="input">
+                      <option value="">-- Select a manifest --</option>
+                    </select>
+                  </div>
+                  <div class="manifest-toolbar-actions">
+                    <button type="button" id="refresh-manifests-btn" class="btn btn-secondary">Refresh</button>
+                    <button type="button" id="delete-manifest-btn" class="btn btn-danger" hidden>Delete</button>
+                  </div>
+                </div>
+                <p id="no-manifest-message" class="muted" hidden>No manifest selected.</p>
+              </div>
+
+              <div id="manifest-detail" class="mini-card" hidden>
+                <div class="manifest-detail-header">
+                  <h4 class="card-title" id="manifest-detail-title">Manifest</h4>
+                  <div id="manifest-summary-chips" class="manifest-summary-chips"></div>
+                </div>
+                <form id="add-shipment-form" class="track-form compact-form">
+                  <div class="form-row">
+                    <label for="manifest-carrier" class="label">Carrier</label>
+                    <select id="manifest-carrier" class="input">
+                      <option value="auto">Auto-detect</option>
+                      <option value="ups">UPS</option>
+                      <option value="usps">USPS</option>
+                      <option value="fedex">FedEx</option>
+                      <option value="shippo">Shippo (test)</option>
+                    </select>
+                  </div>
+                  <div class="form-row">
+                    <label for="manifest-tracking-number" class="label">Tracking Number</label>
+                    <input type="text" id="manifest-tracking-number" class="input" placeholder="e.g. 1Z999AA10123456784" required />
+                    <p id="manifest-carrier-detected-hint" class="detect-hint" hidden></p>
+                  </div>
+                  <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Add shipment</button>
+                    <button type="button" id="refresh-tracking-btn" class="btn btn-secondary">Refresh</button>
+                  </div>
+                </form>
+                <div id="manifest-status-area" class="status-area" aria-live="polite"></div>
+                <div id="manifest-shipments-body" class="shipment-list"></div>
+              </div>
             </div>
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary">Add Shipment</button>
-              <button type="button" id="refresh-tracking-btn" class="btn btn-secondary">Refresh Tracking</button>
-            </div>
-          </form>
-          <div id="manifest-status-area" class="status-area" aria-live="polite"></div>
-          <div id="manifest-shipments-body" class="shipment-list"></div>
-        </div>
+          </div>
+        </section>
       </div>
-    </section>
-  </main>
+    </main>
 
-  <footer class="footer">
-    <div class="container">
-      <p>
-        Data provided by Shippo. See
-        <a href="https://docs.goshippo.com/tracking/tracking" target="_blank" rel="noopener noreferrer">
-          Shippo Tracking API
-        </a>.
-      </p>
-    </div>
-  </footer>
+    <footer class="footer">
+      <div class="container">
+        <p>
+          Data provided by Shippo. See
+          <a href="https://docs.goshippo.com/tracking/tracking" target="_blank" rel="noopener noreferrer">
+            Shippo Tracking API
+          </a>.
+        </p>
+      </div>
+    </footer>
+  </div>
 
   <script src="./assets/js/app.js"></script>
 </body>
