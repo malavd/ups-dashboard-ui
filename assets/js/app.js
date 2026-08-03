@@ -424,9 +424,17 @@
         opt.textContent = m.name || opt.value;
         manifestSelect.appendChild(opt);
       });
+
       let targetId = selectId;
       if (targetId && !manifests.some((m) => (m.id || m._id) === targetId)) {
         targetId = null;
+      }
+
+      const defaultManifest = manifests.find((m) => (m.name || "").trim().toUpperCase() === "ALL");
+      const defaultId = defaultManifest ? (defaultManifest.id || defaultManifest._id) : null;
+
+      if (!targetId && defaultId) {
+        targetId = defaultId;
       }
       if (!targetId && manifests.length > 0) {
         targetId = manifests[0].id || manifests[0]._id;
