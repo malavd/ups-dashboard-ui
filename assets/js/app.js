@@ -204,6 +204,7 @@
   const noManifestMessage = document.getElementById("no-manifest-message");
   const manifestDetail = document.getElementById("manifest-detail");
   const manifestDetailTitle = document.getElementById("manifest-detail-title");
+  const manifestViewBadge = document.getElementById("manifest-view-badge");
   const manifestSummaryChips = document.getElementById("manifest-summary-chips");
   const addShipmentForm = document.getElementById("add-shipment-form");
   const manifestCarrierEl = document.getElementById("manifest-carrier");
@@ -214,6 +215,9 @@
   const manifestShipmentsBody = document.getElementById("manifest-shipments-body");
 
   let currentManifestId = null;
+  let allManifestId = null;
+  let manifestSortMode = "default";
+  const manifestSortSelect = document.getElementById("manifest-sort-select");
 
   function setManifestStatus(text, tone) {
     if (!manifestStatusArea) return;
@@ -256,9 +260,47 @@
     });
   }
 
+  function sortShipments(shipments, mode) {
+    const list = Array.isArray(shipments) ? [...shipments] : [];
+    const statusRank = {
+      delivered: 0,
+      transit: 1,
+      intransit: 1,
+      pending: 2,
+      exception: 3,
+      failure: 4,
+      unknown: 5,
+    };
+
+    return list.sort((a, b) => {
+      const statusA = (a.status || "unknown").toLowerCase();
+      const statusB = (b.status || "unknown").toLowerCase();
+      const etaA = a.estimatedDelivery ? new Date(a.estimatedDelivery).getTime() : Number.POSITIVE_INFINITY;
+      const etaB = b.estimatedDelivery ? new Date(b.estimatedDelivery).getTime() : Number.POSITIVE_INFINITY;
+
+      if (mode === "carrier") {
+        const carrierCompare = ((a.carrier || "").toString()).localeCompare((b.carrier || "").toString(), undefined, { sensitivity: "base" });
+        return carrierCompare || ((a.trackingNumber || "").toString()).localeCompare((b.trackingNumber || "").toString(), undefined, { sensitivity: "base" });
+      }
+
+      if (mode === "eta") {
+        return etaA - etaB || ((a.trackingNumber || "").toString()).localeCompare((b.trackingNumber || "").toString(), undefined, { sensitivity: "base" });
+      }
+
+      if (mode === "status") {
+        const rankA = statusRank[statusA] ?? 99;
+        const rankB = statusRank[statusB] ?? 99;
+        return rankA - rankB || statusA.localeCompare(statusB) || ((a.trackingNumber || "").toString()).localeCompare((b.trackingNumber || "").toString(), undefined, { sensitivity: "base" });
+      }
+
+      return 0;
+    });
+  }
+
   function renderManifestShipments(shipments) {
     manifestShipmentsBody.innerHTML = "";
-    if (!Array.isArray(shipments) || shipments.length === 0) {
+    const sortedShipments = sortShipments(shipments, manifestSortMode);
+    if (!Array.isArray(sortedShipments) || sortedShipments.length === 0) {
       const empty = document.createElement("div");
       empty.className = "empty-state";
       empty.textContent = "No shipments yet. Add one above to get started.";
@@ -266,8 +308,8 @@
       renderManifestSummaryChips([]);
       return;
     }
-    renderManifestSummaryChips(shipments);
-    shipments.forEach((s) => {
+    renderManifestSummaryChips(sortedShipments);
+    sortedShipments.forEach((s) => {
       const card = document.createElement("div");
       card.className = "shipment-card";
 
@@ -343,6 +385,32 @@
     }
   }
 
+  async function ensureDefaultManifest() {
+    if (allManifestId) return allManifestId;
+    try {
+      const res = await fetch(API_BASE_URL + "/api/manifests");
+      const data = await res.json();
+      if (!res.ok || !data.ok) return null;
+      const manifests = data.manifests || [];
+      const existing = manifests.find((manifest) => (manifest.name || "").toUpperCase() === "ALL");
+      if (existing) {
+        allManifestId = existing.id || existing._id;
+        return allManifestId;
+      }
+      const createRes = await fetch(API_BASE_URL + "/api/manifests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "ALL" }),
+      });
+      const createData = await createRes.json();
+      if (!createRes.ok || !createData.ok) return null;
+      allManifestId = createData.manifest.id || createData.manifest._id;
+      return allManifestId;
+    } catch (err) {
+      return null;
+    }
+  }
+
   async function loadManifests(selectId) {
     try {
       const res = await fetch(API_BASE_URL + "/api/manifests");
@@ -398,11 +466,25 @@
       if (noManifestMessage) noManifestMessage.hidden = true;
       if (deleteManifestBtn) deleteManifestBtn.hidden = false;
       manifestDetail.hidden = false;
-      manifestDetailTitle.textContent = data.manifest.name || "Manifest";
+      const manifestName = data.manifest.name || "Manifest";
+      manifestDetailTitle.textContent = manifestName;
+      if (manifestViewBadge) {
+        const isAllView = (manifestName || "").trim().toUpperCase() === "ALL";
+        manifestViewBadge.hidden = !isAllView;
+      }
       renderManifestShipments(data.manifest.shipments || []);
     } catch (err) {
       setManifestStatus("Network error while loading manifest.", "error");
     }
+  }
+
+  if (manifestSortSelect) {
+    manifestSortSelect.addEventListener("change", () => {
+      manifestSortMode = manifestSortSelect.value || "default";
+      if (currentManifestId) {
+        loadManifestDetail(currentManifestId);
+      }
+    });
   }
 
   if (createManifestForm) {
@@ -511,6 +593,12 @@
       let successCount = 0;
       let failCount = 0;
       const failedNumbers = [];
+      const manifestIdsToUpdate = [currentManifestId];
+
+      const defaultManifestId = await ensureDefaultManifest();
+      if (defaultManifestId && defaultManifestId !== currentManifestId) {
+        manifestIdsToUpdate.push(defaultManifestId);
+      }
 
       for (const trackingNumber of trackingNumbers) {
         const { carrier, detectedLabel } = resolveCarrier(manifestCarrierEl, trackingNumber);
@@ -519,27 +607,32 @@
           failedNumbers.push(trackingNumber + " (carrier undetected)");
           continue;
         }
-        try {
-          const res = await fetch(
-            API_BASE_URL + "/api/manifests/" + currentManifestId + "/shipments",
-            {
+
+        let trackingSuccessCount = 0;
+        for (const manifestId of manifestIdsToUpdate) {
+          try {
+            const res = await fetch(API_BASE_URL + "/api/manifests/" + manifestId + "/shipments", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ carrier, trackingNumber }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+              failedNumbers.push(
+                trackingNumber + " (" + ((data && data.error && data.error.message) || "failed") + ")"
+              );
+            } else {
+              trackingSuccessCount++;
             }
-          );
-          const data = await res.json();
-          if (!res.ok || !data.ok) {
-            failCount++;
-            failedNumbers.push(
-              trackingNumber + " (" + ((data && data.error && data.error.message) || "failed") + ")"
-            );
-          } else {
-            successCount++;
+          } catch (err) {
+            failedNumbers.push(trackingNumber + " (network error)");
           }
-        } catch (err) {
+        }
+
+        if (trackingSuccessCount > 0) {
+          successCount++;
+        } else {
           failCount++;
-          failedNumbers.push(trackingNumber + " (network error)");
         }
       }
 
@@ -547,7 +640,7 @@
 
       if (successCount > 0 && failCount === 0) {
         setManifestStatus(
-          successCount === 1 ? "Shipment added." : successCount + " shipments added.",
+          successCount === 1 ? "Shipment added to the selected manifest and ALL." : successCount + " shipments added to the selected manifest and ALL.",
           "success"
         );
       } else if (successCount > 0 && failCount > 0) {
@@ -559,7 +652,7 @@
         setManifestStatus("Failed to add shipment(s): " + failedNumbers.join("; "), "error");
       }
 
-      loadManifestDetail(currentManifestId);
+      await loadManifests(currentManifestId);
     });
   }
 
@@ -589,6 +682,6 @@
   }
 
   if (manifestSelect) {
-    loadManifests();
+    ensureDefaultManifest().then(() => loadManifests());
   }
 })();

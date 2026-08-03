@@ -175,8 +175,20 @@
 
               <div id="manifest-detail" class="mini-card" hidden>
                 <div class="manifest-detail-header">
-                  <h4 class="card-title" id="manifest-detail-title">Manifest</h4>
-                  <div id="manifest-summary-chips" class="manifest-summary-chips"></div>
+                  <div class="manifest-title-group">
+                    <h4 class="card-title" id="manifest-detail-title">Manifest</h4>
+                    <span id="manifest-view-badge" class="manifest-view-badge" hidden>ALL</span>
+                  </div>
+                  <div class="manifest-controls">
+                    <label for="manifest-sort-select" class="label sr-only">Sort shipments</label>
+                    <select id="manifest-sort-select" class="input compact-select">
+                      <option value="default">Default</option>
+                      <option value="carrier">Sort by carrier</option>
+                      <option value="eta">Sort by ETA</option>
+                      <option value="status">Sort by status</option>
+                    </select>
+                    <div id="manifest-summary-chips" class="manifest-summary-chips"></div>
+                  </div>
                 </div>
                 <form id="add-shipment-form" class="track-form compact-form">
                   <div class="form-row">
